@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Earth Systems Simulator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #1a1a2e;
+            color: #fff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            min-height: 100vh;
+        }
+
+        /* Main simulation view */
+        .simulation {
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Sky/Atmosphere */
+        .atmosphere {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60%;
+            background: linear-gradient(to bottom, #1a1a3e, #4a90d9);
+            transition: background 2s;
+        }
+
+        /* Sun */
+        .sun {
+            position: absolute;
+            top: 40px;
+            right: 80px;
+            width: 80px;
+            height: 80px;
+            background: radial-gradient(circle, #fff700, #ff8c00);
+            border-radius: 50%;
+            box-shadow: 0 0 60px #ff8c00, 0 0 100px #ff8c00;
+        }
+
+        /* CO2 particles */
+        .co2-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60%;
+            pointer-events: none;
+        }
+
+        .co2-particle {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: rgba(255, 100, 100, 0.6);
+            border-radius: 50%;
+            animation: float 8s infinite ease-in-out;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) translateX(0); }
+            25% { transform: translateY(-20px) translateX(10px); }
+            50% { transform: translateY(-10px) translateX(-10px); }
+            75% { transform: translateY(-30px) translateX(5px); }
+        }
+
+        /* Ice caps */
+        .ice-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 15%;
+            display: flex;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .ice-cap {
+            position: absolute;
+            bottom: 0;
+            background: linear-gradient(to bottom, #fff, #e0f0ff);
+            border-radius: 0 0 50% 50%;
+            transition: all 1s;
+            box-shadow: 0 5px 20px rgba(255,255,255,0.3);
+        }
+
+        .ice-north {
+            width: 40%;
+            height: 80%;
+        }
+
+        /* Land */
+        .land {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 45%;
+            background: linear-gradient(to bottom, #3d5a3d, #2d4a2d);
+            transition: background 2s;
+        }
+
+        /* Ocean */
+        .ocean {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 25%;
+            background: linear-gradient(to bottom, #1a5a8a, #0a3a5a);
+            transition: height 2s, background 2s;
+            z-index: 5;
+        }
+
+        .ocean-waves {
+            position: absolute;
+            top: -10px;
+            left: 0;
+            right: 0;
+            height: 20px;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120'%3E%3Cpath fill='%231a5a8a' d='M0,60 C150,120 350,0 600,60 C850,120 1050,0 1200,60 L1200,120 L0,120 Z'/%3E%3C/svg%3E");
+            background-size: 600px 20px;
+            animation: waves 4s linear infinite;
+        }
+
+        @keyframes waves {
+            0% { background-position-x: 0; }
+            100% { background-position-x: 600px; }
+        }
+
+        /* Forests */
+        .forest-container {
+            position: absolute;
+            bottom: 20%;
+            left: 0;
+            right: 0;
+            height: 25%;
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-end;
+            padding: 0 5%;
+            z-index: 4;
+        }
+
+        .tree {
+            transition: transform 1s, opacity 1s;
+        }
+
+        .tree-trunk {
+            width: 12px;
+            height: 30px;
+            background: #4a3728;
+            margin: 0 auto;
+        }
+
+        .tree-top {
+            width: 0;
+            height: 0;
+            border-left: 25px solid transparent;
+            border-right: 25px solid transparent;
+            border-bottom: 50px solid #2d5a2d;
+            position: relative;
+            left: -19px;
+        }
+
+        /* South ice */
+        .ice-south {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 30%;
+            height: 10%;
+            background: linear-gradient(to top, #fff, #e0f0ff);
+            border-radius: 50% 50% 0 0;
+            z-index: 6;
+            transition: all 1s;
+        }
+
+        /* Info overlay */
+        .year-display {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-size: 1.5rem;
+            z-index: 100;
+        }
+
+        .year-display span {
+            color: #4a90d9;
+            font-weight: bold;
+        }
+
+        /* Feedback indicator */
+        .feedback-popup {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            padding: 20px 30px;
+            border-radius: 15px;
+            text-align: center;
+            z-index: 200;
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+            max-width: 400px;
+        }
+
+        .feedback-popup.show {
+            opacity: 1;
+        }
+
+        .feedback-popup h3 {
+            color: #ff6b6b;
+            margin-bottom: 10px;
+        }
+
+        /* Control Panel */
+        .control-panel {
+            background: #16213e;
+            padding: 20px;
+            overflow-y: auto;
+            border-left: 2px solid #2a3a5a;
+        }
+
+        .panel-title {
+            font-size: 1.3rem;
+            color: #4a90d9;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #2a3a5a;
+        }
+
+        .control-section {
+            margin-bottom: 25px;
+        }
+
+        .control-section h3 {
+            font-size: 0.9rem;
+            color: #888;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        /* Time controls */
+        .time-controls {
+            background: #1a2744;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .time-scale-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.85rem;
+        }
+
+        .time-scale-value {
+            color: #4ade80;
+            font-weight: bold;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            -webkit-appearance: none;
+            background: #2a3a5a;
+            border-radius: 4px;
+            outline: none;
+            margin: 10px 0;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #4a90d9;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: #5aa0e9;
+        }
+
+        .play-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .btn-play {
+            background: #4ade80;
+            color: #000;
+        }
+
+        .btn-pause {
+            background: #fbbf24;
+            color: #000;
+        }
+
+        .btn-reset {
+            background: #f87171;
+            color: #fff;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+        }
+
+        /* Stats display */
+        .stats {
+            background: #1a2744;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #2a3a5a;
+        }
+
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        .stat-value {
+            font-weight: bold;
+            transition: color 0.3s;
+        }
+
+        .stat-value.high { color: #f87171; }
+        .stat-value.medium { color: #fbbf24; }
+        .stat-value.low { color: #4ade80; }
+
+        /* Scenario buttons */
+        .scenario-buttons {
+            display: grid;
+            gap: 10px;
+        }
+
+        .btn-scenario {
+            background: #2a3a5a;
+            color: #fff;
+            text-align: left;
+            padding: 12px;
+            font-size: 0.85rem;
+        }
+
+        .btn-scenario:hover {
+            background: #3a4a6a;
+        }
+
+        .btn-scenario span {
+            display: block;
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: 3px;
+        }
+
+        /* Educational panel */
+        .education-panel {
+            background: #1a2744;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .education-panel h4 {
+            color: #4a90d9;
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+        }
+
+        .principle {
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: #aaa;
+        }
+
+        .principle strong {
+            color: #fff;
+        }
+
+        /* Legend */
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="simulation">
+            <div class="atmosphere" id="atmosphere"></div>
+            <div class="sun"></div>
+            <div class="co2-container" id="co2Container"></div>
+            <div class="ice-container">
+                <div class="ice-cap ice-north" id="iceNorth"></div>
+            </div>
+            <div class="land" id="land"></div>
+            <div class="forest-container" id="forestContainer"></div>
+            <div class="ocean" id="ocean">
+                <div class="ocean-waves"></div>
+            </div>
+            <div class="ice-south" id="iceSouth"></div>
+
+            <div class="year-display">
+                Year: <span id="yearDisplay">2024</span>
+            </div>
+
+            <div class="feedback-popup" id="feedbackPopup">
+                <h3 id="feedbackTitle">Feedback Loop!</h3>
+                <p id="feedbackText"></p>
+            </div>
+        </div>
+
+        <div class="control-panel">
+            <h2 class="panel-title">Earth Systems Simulator</h2>
+
+            <div class="time-controls">
+                <div class="control-section">
+                    <h3>Time Scale</h3>
+                    <div class="time-scale-label">
+                        <span>Speed:</span>
+                        <span class="time-scale-value" id="timeScaleDisplay">10 years/sec</span>
+                    </div>
+                    <input type="range" id="timeScale" min="0" max="4" step="1" value="1">
+                    <div class="time-scale-label">
+                        <span>1 yr/sec</span>
+                        <span>10,000 yrs/sec</span>
+                    </div>
+                </div>
+
+                <div class="play-controls">
+                    <button class="btn-play" id="btnPlay" onclick="togglePlay()">▶ Play</button>
+                    <button class="btn-reset" onclick="resetSimulation()">↺ Reset</button>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>Current Conditions</h3>
+                <div class="stats">
+                    <div class="stat-row">
+                        <span class="stat-label">🌡️ Temperature</span>
+                        <span class="stat-value" id="tempDisplay">15.0°C</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">💨 CO₂ Level</span>
+                        <span class="stat-value" id="co2Display">280 ppm</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">🌊 Sea Level</span>
+                        <span class="stat-value" id="seaDisplay">0 m</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">❄️ Ice Coverage</span>
+                        <span class="stat-value" id="iceDisplay">100%</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">🌲 Forest Coverage</span>
+                        <span class="stat-value" id="forestDisplay">100%</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">☀️ Albedo</span>
+                        <span class="stat-value" id="albedoDisplay">0.30</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>Scenarios</h3>
+                <div class="scenario-buttons">
+                    <button class="btn-scenario" onclick="startScenario('industrial')">
+                        🏭 Industrial Revolution
+                        <span>Start from 1850 with increasing emissions</span>
+                    </button>
+                    <button class="btn-scenario" onclick="startScenario('volcanic')">
+                        🌋 Volcanic Winter
+                        <span>Major eruption blocks sunlight</span>
+                    </button>
+                    <button class="btn-scenario" onclick="startScenario('deforestation')">
+                        🪓 Mass Deforestation
+                        <span>Rapid forest loss</span>
+                    </button>
+                    <button class="btn-scenario" onclick="startScenario('sustainable')">
+                        🌱 Sustainability Path
+                        <span>Emissions reduction + reforestation</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="education-panel">
+                <h4>💡 Active Principle</h4>
+                <p class="principle" id="principleText">
+                    <strong>Climate System Basics:</strong> Earth's climate is driven by the balance between incoming solar radiation and outgoing heat. Greenhouse gases like CO₂ trap heat, warming the planet.
+                </p>
+            </div>
+
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff6464;"></div>
+                    CO₂ molecules
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #fff;"></div>
+                    Ice/Snow
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #2d5a2d;"></div>
+                    Forests
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========== SIMULATION STATE ==========
+        let state = {
+            year: 2024,
+            temperature: 15.0,      // Global average °C
+            co2: 280,               // Parts per million (pre-industrial)
+            seaLevel: 0,            // Meters relative to baseline
+            icePercent: 100,        // Percentage of baseline ice
+            forestPercent: 100,     // Percentage of baseline forest
+            albedo: 0.30,           // Earth's reflectivity (0-1)
+
+            // Scenario modifiers
+            emissions: 0,           // Annual CO2 emissions
+            volcanicCooling: 0,     // Temporary cooling effect
+
+            // Control state
+            isPlaying: false,
+            timeScale: 10,          // Years per second
+            scenario: null
+        };
+
+        const baselineState = { ...state };
+
+        // Time scale options
+        const timeScales = [1, 10, 100, 1000, 10000];
+
+        // ========== EDUCATIONAL PRINCIPLES ==========
+        const principles = {
+            greenhouse: `<strong>Greenhouse Effect:</strong> CO₂ and other gases trap heat in the atmosphere. As CO₂ rises, more heat is retained, causing warming.`,
+            iceAlbedo: `<strong>Ice-Albedo Feedback:</strong> Ice reflects sunlight (high albedo). As ice melts, darker ocean absorbs more heat, causing more warming and more melting—a positive feedback loop.`,
+            carbonCycle: `<strong>Carbon Cycle:</strong> Forests absorb CO₂ through photosynthesis. Deforestation releases stored carbon and reduces future absorption capacity.`,
+            thermalExpansion: `<strong>Sea Level Rise:</strong> Warming causes sea level rise through two mechanisms: thermal expansion of water and melting of land ice.`,
+            volcanic: `<strong>Volcanic Cooling:</strong> Major eruptions inject sulfur particles into the stratosphere, reflecting sunlight and temporarily cooling the planet.`,
+            tippingPoints: `<strong>Tipping Points:</strong> Beyond certain thresholds, changes become self-reinforcing and potentially irreversible. Watch for runaway feedback loops!`
+        };
+
+        // ========== INITIALIZATION ==========
+        function init() {
+            createTrees();
+            createCO2Particles();
+            updateDisplay();
+
+            document.getElementById('timeScale').addEventListener('input', (e) => {
+                state.timeScale = timeScales[e.target.value];
+                document.getElementById('timeScaleDisplay').textContent =
+                    state.timeScale >= 1000
+                        ? `${(state.timeScale/1000).toFixed(0)}k years/sec`
+                        : `${state.timeScale} years/sec`;
+            });
+        }
+
+        function createTrees() {
+            const container = document.getElementById('forestContainer');
+            container.innerHTML = '';
+            for (let i = 0; i < 15; i++) {
+                const tree = document.createElement('div');
+                tree.className = 'tree';
+                tree.innerHTML = `
+                    <div class="tree-top"></div>
+                    <div class="tree-trunk"></div>
+                `;
+                tree.style.transform = `scale(${0.6 + Math.random() * 0.6})`;
+                container.appendChild(tree);
+            }
+        }
+
+        function createCO2Particles() {
+            const container = document.getElementById('co2Container');
+            container.innerHTML = '';
+            const particleCount = Math.min(100, Math.floor(state.co2 / 5));
+
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'co2-particle';
+                particle.style.left = `${Math.random() * 100}%`;
+                particle.style.top = `${Math.random() * 100}%`;
+                particle.style.animationDelay = `${Math.random() * 8}s`;
+                particle.style.opacity = 0.3 + (state.co2 - 280) / 1000;
+                container.appendChild(particle);
+            }
+        }
+
+        // ========== SIMULATION LOOP ==========
+        let lastTime = 0;
+
+        function simulate(currentTime) {
+            if (!lastTime) lastTime = currentTime;
+            const delta = (currentTime - lastTime) / 1000; // seconds
+            lastTime = currentTime;
+
+            if (state.isPlaying) {
+                const yearsElapsed = delta * state.timeScale;
+                updateSimulation(yearsElapsed);
+                updateDisplay();
+            }
+
+            requestAnimationFrame(simulate);
+        }
+
+        function updateSimulation(years) {
+            state.year += years;
+
+            // ===== CO2 DYNAMICS =====
+            // Natural absorption by oceans and forests
+            const naturalAbsorption = (state.forestPercent / 100) * 2 + 1; // ppm/year
+
+            // Emissions (if any scenario active)
+            state.co2 += (state.emissions - naturalAbsorption) * years;
+            state.co2 = Math.max(180, state.co2); // Can't go below ice age levels
+
+            // ===== TEMPERATURE DYNAMICS =====
+            // Baseline: 15°C at 280ppm
+            // Climate sensitivity: ~3°C per doubling of CO2
+            const co2Effect = 3 * Math.log2(state.co2 / 280);
+
+            // Albedo effect (lower albedo = warmer)
+            const albedoEffect = (0.30 - state.albedo) * 20;
+
+            // Volcanic cooling (temporary)
+            state.volcanicCooling *= Math.pow(0.9, years); // Decay over time
+
+            const targetTemp = 15 + co2Effect + albedoEffect - state.volcanicCooling;
+
+            // Temperature changes gradually
+            state.temperature += (targetTemp - state.temperature) * 0.1 * years;
+
+            // ===== ICE DYNAMICS =====
+            // Ice melts above 14°C baseline, grows below
+            const iceMeltRate = (state.temperature - 14) * 2;
+            state.icePercent -= iceMeltRate * years;
+            state.icePercent = Math.max(0, Math.min(100, state.icePercent));
+
+            // ===== ALBEDO DYNAMICS =====
+            // Albedo depends on ice coverage
+            state.albedo = 0.25 + (state.icePercent / 100) * 0.10;
+
+            // ===== SEA LEVEL DYNAMICS =====
+            // Thermal expansion + ice melt
+            const thermalExpansion = (state.temperature - 15) * 0.5;
+            const iceMeltContribution = (100 - state.icePercent) * 0.7;
+            state.seaLevel = thermalExpansion + iceMeltContribution;
+
+            // ===== FOREST DYNAMICS =====
+            // Forests struggle in extreme temperatures
+            if (state.scenario === 'deforestation') {
+                state.forestPercent -= 2 * years;
+            } else if (state.scenario === 'sustainable') {
+                state.forestPercent += 0.5 * years;
+            }
+
+            if (state.temperature > 20 || state.temperature < 5) {
+                state.forestPercent -= 0.5 * years;
+            }
+            state.forestPercent = Math.max(0, Math.min(100, state.forestPercent));
+
+            // ===== CHECK FOR FEEDBACK LOOPS =====
+            checkFeedbackLoops();
+        }
+
+        function checkFeedbackLoops() {
+            // Ice-albedo feedback
+            if (state.icePercent < 50 && state.temperature > 17) {
+                showFeedback('Ice-Albedo Feedback!', principles.iceAlbedo);
+            }
+
+            // Runaway greenhouse
+            if (state.co2 > 600 && state.temperature > 19) {
+                showFeedback('Accelerating Warming!', principles.greenhouse);
+            }
+
+            // Carbon cycle disruption
+            if (state.forestPercent < 30) {
+                showFeedback('Carbon Sink Collapse!', principles.carbonCycle);
+            }
+        }
+
+        let feedbackTimeout;
+        function showFeedback(title, text) {
+            const popup = document.getElementById('feedbackPopup');
+            document.getElementById('feedbackTitle').textContent = title;
+            document.getElementById('feedbackText').innerHTML = text;
+            document.getElementById('principleText').innerHTML = text;
+            popup.classList.add('show');
+
+            clearTimeout(feedbackTimeout);
+            feedbackTimeout = setTimeout(() => {
+                popup.classList.remove('show');
+            }, 4000);
+        }
+
+        // ========== DISPLAY UPDATE ==========
+        function updateDisplay() {
+            // Update stats
+            document.getElementById('yearDisplay').textContent = Math.floor(state.year);
+            document.getElementById('tempDisplay').textContent = state.temperature.toFixed(1) + '°C';
+            document.getElementById('co2Display').textContent = Math.floor(state.co2) + ' ppm';
+            document.getElementById('seaDisplay').textContent = state.seaLevel.toFixed(1) + ' m';
+            document.getElementById('iceDisplay').textContent = Math.floor(state.icePercent) + '%';
+            document.getElementById('forestDisplay').textContent = Math.floor(state.forestPercent) + '%';
+            document.getElementById('albedoDisplay').textContent = state.albedo.toFixed(2);
+
+            // Color code stats
+            const tempEl = document.getElementById('tempDisplay');
+            tempEl.className = 'stat-value ' + (state.temperature > 17 ? 'high' : state.temperature > 16 ? 'medium' : 'low');
+
+            const co2El = document.getElementById('co2Display');
+            co2El.className = 'stat-value ' + (state.co2 > 450 ? 'high' : state.co2 > 350 ? 'medium' : 'low');
+
+            // Update visuals
+            updateVisuals();
+        }
+
+        function updateVisuals() {
+            // Atmosphere color (warmer = more orange/red tint)
+            const warmth = Math.max(0, Math.min(1, (state.temperature - 14) / 10));
+            const skyR = Math.floor(26 + warmth * 80);
+            const skyG = Math.floor(26 + warmth * 20);
+            const skyB = Math.floor(62 - warmth * 30);
+            document.getElementById('atmosphere').style.background =
+                `linear-gradient(to bottom, rgb(${skyR},${skyG},${skyB}), #4a90d9)`;
+
+            // Ice caps
+            const iceScale = state.icePercent / 100;
+            document.getElementById('iceNorth').style.transform = `scaleX(${iceScale}) scaleY(${iceScale})`;
+            document.getElementById('iceNorth').style.opacity = iceScale;
+            document.getElementById('iceSouth').style.transform = `translateX(-50%) scaleX(${iceScale}) scaleY(${iceScale})`;
+            document.getElementById('iceSouth').style.opacity = iceScale;
+
+            // Ocean level
+            const oceanHeight = 25 + state.seaLevel * 0.3;
+            document.getElementById('ocean').style.height = `${Math.min(40, oceanHeight)}%`;
+
+            // Forests
+            const trees = document.querySelectorAll('.tree');
+            const visibleTrees = Math.floor(trees.length * state.forestPercent / 100);
+            trees.forEach((tree, i) => {
+                tree.style.opacity = i < visibleTrees ? 1 : 0.2;
+                tree.style.transform = i < visibleTrees
+                    ? `scale(${0.6 + Math.random() * 0.4})`
+                    : 'scale(0.3)';
+            });
+
+            // CO2 particles
+            createCO2Particles();
+        }
+
+        // ========== CONTROLS ==========
+        function togglePlay() {
+            state.isPlaying = !state.isPlaying;
+            const btn = document.getElementById('btnPlay');
+            btn.textContent = state.isPlaying ? '⏸ Pause' : '▶ Play';
+            btn.className = state.isPlaying ? 'btn-pause' : 'btn-play';
+        }
+
+        function resetSimulation() {
+            state = { ...baselineState };
+            state.scenario = null;
+            updateDisplay();
+            document.getElementById('principleText').innerHTML = principles.greenhouse;
+        }
+
+        function startScenario(scenario) {
+            resetSimulation();
+            state.scenario = scenario;
+
+            switch(scenario) {
+                case 'industrial':
+                    state.year = 1850;
+                    state.co2 = 280;
+                    state.emissions = 4; // ppm/year increasing
+                    document.getElementById('principleText').innerHTML = principles.greenhouse;
+                    break;
+
+                case 'volcanic':
+                    state.volcanicCooling = 3;
+                    state.emissions = 0;
+                    document.getElementById('principleText').innerHTML = principles.volcanic;
+                    break;
+
+                case 'deforestation':
+                    state.emissions = 2;
+                    document.getElementById('principleText').innerHTML = principles.carbonCycle;
+                    break;
+
+                case 'sustainable':
+                    state.year = 2024;
+                    state.co2 = 420;
+                    state.temperature = 16.5;
+                    state.emissions = -1; // Net negative
+                    document.getElementById('principleText').innerHTML =
+                        `<strong>Sustainability Path:</strong> With reduced emissions and reforestation, CO₂ levels can stabilize. Watch how forests help absorb carbon!`;
+                    break;
+            }
+
+            state.isPlaying = true;
+            document.getElementById('btnPlay').textContent = '⏸ Pause';
+            document.getElementById('btnPlay').className = 'btn-pause';
+            updateDisplay();
+        }
+
+        // ========== START ==========
+        init();
+        requestAnimationFrame(simulate);
+    </script>
+</body>
+</html>
